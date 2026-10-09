@@ -22,6 +22,13 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
   // Estado para tooltip interactivo del gráfico SVG
   const [hoveredPoint, setHoveredPoint] = createSignal<{ item: PriceHistoryItem; x: number; y: number } | null>(null);
 
+  // Estado para controles de tamaño de gráfica (Ejes X / Y) y Zoom interactivo
+  const [chartWidth, setChartWidth] = createSignal<number>(840);
+  const [chartHeight, setChartHeight] = createSignal<number>(300);
+  const [zoomLevel, setZoomLevel] = createSignal<number>(1);
+  const [panPosition, setPanPosition] = createSignal<number>(0);
+  const [showPointValues, setShowPointValues] = createSignal<boolean>(false);
+
   // 2. Recursos Asíncronos
   const [cardDetail] = createResource(
     () => props.uuid,
@@ -70,35 +77,87 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
     });
   });
 
-  // 4. Cálculos para el Gráfico SVG
+  // 4. Cálculos para el Gráfico SVG con Soporte Dinámico de Dimensiones, Zoom y Reajuste de Escala
   const chartData = createMemo(() => {
-    const history = priceHistoryData()?.history || [];
+    const rawHistory = priceHistoryData()?.history || [];
+    if (rawHistory.length === 0) return null;
+
+    const curr = selectedCurrency() === 'EUR' ? '€' : '$';
+    const totalPoints = rawHistory.length;
+    const zoom = zoomLevel();
+    const pan = panPosition();
+
+    // 1. Filtrar puntos visibles según el Zoom y Pan
+    let history: PriceHistoryItem[] = [];
+    let startIndex = 0;
+    let endIndex = totalPoints;
+
+    if (zoom <= 1 || totalPoints <= 2) {
+      history = rawHistory;
+    } else {
+      const visibleCount = Math.max(2, Math.round(totalPoints / zoom));
+      const maxStartIndex = Math.max(0, totalPoints - visibleCount);
+      startIndex = Math.round((pan / 100) * maxStartIndex);
+      endIndex = Math.min(totalPoints, startIndex + visibleCount);
+      history = rawHistory.slice(startIndex, endIndex);
+    }
+
     if (history.length === 0) return null;
 
-    const width = 640;
-    const height = 240;
-    const padding = { top: 24, right: 24, bottom: 36, left: 54 };
-    const innerWidth = width - padding.left - padding.right;
-    const innerHeight = height - padding.top - padding.bottom;
+    // 2. Dimensiones y paddings
+    const width = chartWidth();
+    const height = chartHeight();
+    const padding = { top: 32, right: 36, bottom: 44, left: 66 };
+    const innerWidth = Math.max(100, width - padding.left - padding.right);
+    const innerHeight = Math.max(60, height - padding.top - padding.bottom);
 
-    const prices = history.map((h) => h.price);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
+    // 3. Reajuste de escala Y dinámico basado EXCLUSIVAMENTE en los puntos visibles
+    const visiblePrices = history.map((h) => h.price);
+    const rawMin = Math.min(...visiblePrices);
+    const rawMax = Math.max(...visiblePrices);
+
+    let minP = rawMin;
+    let maxP = rawMax;
+
+    if (rawMax === rawMin) {
+      minP = Math.max(0, rawMin * 0.9);
+      maxP = rawMax === 0 ? 1 : rawMax * 1.1;
+    } else {
+      const margin = (rawMax - rawMin) * 0.08;
+      minP = Math.max(0, rawMin - margin);
+      maxP = rawMax + margin;
+    }
+
     const rangeP = maxP - minP || 1;
 
-    // Calcular puntos (x, y)
+    // 4. Calcular coordenadas de puntos (X, Y)
     const points = history.map((item, index) => {
       const x = padding.left + (index / Math.max(1, history.length - 1)) * innerWidth;
       const y = padding.top + innerHeight - ((item.price - minP) / rangeP) * innerHeight;
-      return { x, y, item };
+      return { x, y, item, index: startIndex + index };
     });
 
+    // 5. SVG Path de la línea de precios
     const pathD = points.reduce((acc, pt, idx) => {
       return idx === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`;
     }, '');
 
-    // Path cerrado para el área con degradado
+    // 6. SVG Path del área sombreada con degradado
     const areaD = `${pathD} L ${points[points.length - 1].x},${padding.top + innerHeight} L ${points[0].x},${padding.top + innerHeight} Z`;
+
+    // 7. Niveles de precio Y recalculados dinámicamente
+    const yLevels = [
+      { price: maxP, y: padding.top },
+      { price: minP + rangeP * 0.75, y: padding.top + innerHeight * 0.25 },
+      { price: minP + rangeP * 0.50, y: padding.top + innerHeight * 0.50 },
+      { price: minP + rangeP * 0.25, y: padding.top + innerHeight * 0.75 },
+      { price: minP, y: padding.top + innerHeight },
+    ];
+
+    // 8. Fechas para el eje X
+    const firstDate = history[0]?.price_date;
+    const lastDate = history[history.length - 1]?.price_date;
+    const midDate = history[Math.floor(history.length / 2)]?.price_date;
 
     return {
       width,
@@ -108,12 +167,20 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
       innerHeight,
       minP,
       maxP,
+      rawMin,
+      rawMax,
+      curr,
+      totalPoints,
+      visibleCount: history.length,
+      startIndex,
+      endIndex,
       points,
       pathD,
       areaD,
-      firstDate: history[0]?.price_date,
-      lastDate: history[history.length - 1]?.price_date,
-      midDate: history[Math.floor(history.length / 2)]?.price_date,
+      yLevels,
+      firstDate,
+      lastDate,
+      midDate,
     };
   });
 
@@ -755,7 +822,7 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
               </div>
 
               {/* =====================================================================
-                  GRÁFICA INTERACTIVA DE EVOLUCIÓN TEMPORAL DE PRECIOS
+                  GRÁFICA INTERACTIVA DE EVOLUCIÓN TEMPORAL DE PRECIOS CON CONTROLES
                   ===================================================================== */}
               <div
                 style={{
@@ -769,21 +836,285 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
                   position: 'relative',
                 }}
               >
-                <div style={{ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between' }}>
+                {/* Cabecera de la Sección de Gráfica */}
+                <div style={{ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between', 'flex-wrap': 'wrap', gap: '10px' }}>
                   <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
-                    <span class="material-symbols-outlined" style={{ color: 'var(--m3-primary)', 'font-size': '22px' }}>
+                    <span class="material-symbols-outlined" style={{ color: 'var(--m3-primary)', 'font-size': '24px' }}>
                       show_chart
                     </span>
-                    <h3 style={{ 'font-size': '1.0625rem', 'font-weight': 700 }}>
-                      Evolución Histórica de Precios
-                    </h3>
+                    <div>
+                      <h3 style={{ 'font-size': '1.0625rem', 'font-weight': 700 }}>
+                        Evolución Histórica de Precios
+                      </h3>
+                      <p style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)', 'margin-top': '2px' }}>
+                        Ajusta las dimensiones de los ejes y el nivel de zoom para analizar rangos específicos con reajuste automático de escala
+                      </p>
+                    </div>
                   </div>
 
-                  <span style={{ 'font-size': '0.75rem', color: 'var(--m3-outline)' }}>
-                    Pasa el cursor sobre la gráfica para inspeccionar cada cotización
-                  </span>
+                  <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      class={`m3-chip ${showPointValues() ? 'active' : ''}`}
+                      onClick={() => setShowPointValues((prev) => !prev)}
+                      style={{ height: '32px', 'font-size': '0.75rem', cursor: 'pointer', gap: '6px' }}
+                      title="Mostrar u ocultar los valores numéricos sobre cada punto"
+                    >
+                      <span class="material-symbols-outlined" style={{ 'font-size': '16px' }}>
+                        {showPointValues() ? 'label' : 'label_off'}
+                      </span>
+                      {showPointValues() ? 'Valores en Puntos: Activado' : 'Mostrar Valores en Puntos'}
+                    </button>
+
+                    <button
+                      type="button"
+                      class="m3-btn m3-btn-tonal"
+                      style={{ height: '32px', padding: '0 12px', 'font-size': '0.75rem', cursor: 'pointer', gap: '4px' }}
+                      onClick={() => {
+                        setChartWidth(840);
+                        setChartHeight(300);
+                        setZoomLevel(1);
+                        setPanPosition(0);
+                        setShowPointValues(false);
+                      }}
+                      title="Restablecer tamaño y zoom a valores por defecto"
+                    >
+                      <span class="material-symbols-outlined" style={{ 'font-size': '16px' }}>
+                        restart_alt
+                      </span>
+                      Restablecer
+                    </button>
+                  </div>
                 </div>
 
+                {/* =====================================================================
+                    PANEL DE SLIDERS: DIMENSIONES X/Y + ZOOM + PAN
+                    ===================================================================== */}
+                <div
+                  style={{
+                    background: 'var(--m3-surface-container-high)',
+                    'border-radius': '16px',
+                    border: '1px solid var(--m3-outline-variant)',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    'flex-direction': 'column',
+                    gap: '14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'grid',
+                      'grid-template-columns': 'repeat(auto-fit, minmax(210px, 1fr))',
+                      gap: '16px',
+                    }}
+                  >
+                    {/* Slider 1: Ancho (Eje X) */}
+                    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }}>
+                        <label style={{ 'font-size': '0.75rem', 'font-weight': 600, color: 'var(--m3-on-surface-variant)', display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                          <span class="material-symbols-outlined" style={{ 'font-size': '16px', color: 'var(--m3-primary)' }}>
+                            width
+                          </span>
+                          Ancho (Eje X)
+                        </label>
+                        <span style={{ 'font-size': '0.75rem', 'font-weight': 700, color: 'var(--m3-primary)' }}>
+                          {chartWidth()} px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="500"
+                        max="1600"
+                        step="20"
+                        value={chartWidth()}
+                        onInput={(e) => setChartWidth(Number(e.currentTarget.value))}
+                        style={{
+                          width: '100%',
+                          'accent-color': 'var(--m3-primary)',
+                          cursor: 'pointer',
+                        }}
+                      />
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'font-size': '0.6875rem', color: 'var(--m3-outline)' }}>
+                        <span>500px</span>
+                        <span>1050px</span>
+                        <span>1600px</span>
+                      </div>
+                    </div>
+
+                    {/* Slider 2: Alto (Eje Y) */}
+                    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }}>
+                        <label style={{ 'font-size': '0.75rem', 'font-weight': 600, color: 'var(--m3-on-surface-variant)', display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                          <span class="material-symbols-outlined" style={{ 'font-size': '16px', color: 'var(--m3-secondary)' }}>
+                            height
+                          </span>
+                          Alto (Eje Y)
+                        </label>
+                        <span style={{ 'font-size': '0.75rem', 'font-weight': 700, color: 'var(--m3-secondary)' }}>
+                          {chartHeight()} px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="180"
+                        max="600"
+                        step="10"
+                        value={chartHeight()}
+                        onInput={(e) => setChartHeight(Number(e.currentTarget.value))}
+                        style={{
+                          width: '100%',
+                          'accent-color': 'var(--m3-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      />
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'font-size': '0.6875rem', color: 'var(--m3-outline)' }}>
+                        <span>180px</span>
+                        <span>390px</span>
+                        <span>600px</span>
+                      </div>
+                    </div>
+
+                    {/* Slider 3: Zoom Temporal */}
+                    <div style={{ display: 'flex', 'flex-direction': 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }}>
+                        <label style={{ 'font-size': '0.75rem', 'font-weight': 600, color: 'var(--m3-on-surface-variant)', display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                          <span class="material-symbols-outlined" style={{ 'font-size': '16px', color: 'var(--m3-gold)' }}>
+                            zoom_in
+                          </span>
+                          Nivel de Zoom
+                        </label>
+                        <span style={{ 'font-size': '0.75rem', 'font-weight': 700, color: 'var(--m3-gold)' }}>
+                          {zoomLevel().toFixed(1)}x {zoomLevel() > 1 ? `(${chartData()?.visibleCount || 0} pts)` : '(100%)'}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="6"
+                        step="0.2"
+                        value={zoomLevel()}
+                        onInput={(e) => setZoomLevel(Number(e.currentTarget.value))}
+                        style={{
+                          width: '100%',
+                          'accent-color': 'var(--m3-gold)',
+                          cursor: 'pointer',
+                        }}
+                      />
+                      <div style={{ display: 'flex', 'justify-content': 'space-between', 'font-size': '0.6875rem', color: 'var(--m3-outline)' }}>
+                        <span>1.0x</span>
+                        <span>3.5x</span>
+                        <span>6.0x</span>
+                      </div>
+                    </div>
+
+                    {/* Slider 4: Desplazamiento Temporal (Pan) */}
+                    <Show when={zoomLevel() > 1}>
+                      <div style={{ display: 'flex', 'flex-direction': 'column', gap: '6px', 'animation': 'fadeIn 0.2s ease' }}>
+                        <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }}>
+                          <label style={{ 'font-size': '0.75rem', 'font-weight': 600, color: 'var(--m3-on-surface-variant)', display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                            <span class="material-symbols-outlined" style={{ 'font-size': '16px', color: '#34d399' }}>
+                              pan_tool_alt
+                            </span>
+                            Desplazamiento (Pan)
+                          </label>
+                          <span style={{ 'font-size': '0.75rem', 'font-weight': 700, color: '#34d399' }}>
+                            {panPosition()}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={panPosition()}
+                          onInput={(e) => setPanPosition(Number(e.currentTarget.value))}
+                          style={{
+                            width: '100%',
+                            'accent-color': '#34d399',
+                            cursor: 'pointer',
+                          }}
+                        />
+                        <div style={{ display: 'flex', 'justify-content': 'space-between', 'font-size': '0.6875rem', color: 'var(--m3-outline)' }}>
+                          <span>← Histórico Antiguo</span>
+                          <span>Reciente →</span>
+                        </div>
+                      </div>
+                    </Show>
+                  </div>
+
+                  {/* Fila de Botones Rápidos de Zoom */}
+                  <div style={{ display: 'flex', 'align-items': 'center', gap: '8px', 'flex-wrap': 'wrap', 'padding-top': '4px', 'border-top': '1px solid var(--m3-outline-variant)' }}>
+                    <span style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)', 'font-weight': 600 }}>
+                      Accesos rápidos de Zoom:
+                    </span>
+                    <For each={[
+                      { label: '1.0x (Completo)', zoom: 1 },
+                      { label: '1.5x', zoom: 1.5 },
+                      { label: '2.5x (Medio)', zoom: 2.5 },
+                      { label: '4.0x', zoom: 4.0 },
+                      { label: '6.0x (Máximo Detalle)', zoom: 6.0 },
+                    ]}>
+                      {(btn) => (
+                        <button
+                          type="button"
+                          class={`m3-chip ${zoomLevel() === btn.zoom ? 'active' : ''}`}
+                          onClick={() => {
+                            setZoomLevel(btn.zoom);
+                            if (btn.zoom === 1) setPanPosition(0);
+                          }}
+                          style={{ height: '28px', 'font-size': '0.75rem', cursor: 'pointer' }}
+                        >
+                          {btn.label}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                {/* Banner de Estado de Zoom y Reajuste Dinámico de Escala */}
+                <Show when={chartData()}>
+                  {(cd) => (
+                    <div
+                      style={{
+                        background: 'var(--m3-surface-container-low)',
+                        padding: '10px 14px',
+                        'border-radius': '10px',
+                        border: '1px solid var(--m3-outline-variant)',
+                        display: 'flex',
+                        'align-items': 'center',
+                        'justify-content': 'space-between',
+                        'flex-wrap': 'wrap',
+                        gap: '8px',
+                        'font-size': '0.75rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                        <span class="material-symbols-outlined" style={{ 'font-size': '18px', color: 'var(--m3-primary)' }}>
+                          tune
+                        </span>
+                        <span style={{ color: 'var(--m3-on-surface-variant)' }}>
+                          Mostrando <strong>{cd().visibleCount}</strong> de <strong>{cd().totalPoints}</strong> puntos
+                          {zoomLevel() > 1 ? ` (Ventana del ${cd().firstDate} al ${cd().lastDate})` : ' (Histórico Completo)'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                        <span style={{ color: 'var(--m3-on-surface-variant)' }}>
+                          Rango reajustado en ventana:
+                        </span>
+                        <span style={{ 'font-weight': 700, color: '#34d399' }}>
+                          Mín: {cd().curr}{cd().rawMin.toFixed(2)}
+                        </span>
+                        <span style={{ color: 'var(--m3-outline)' }}>—</span>
+                        <span style={{ 'font-weight': 700, color: 'var(--m3-gold)' }}>
+                          Máx: {cd().curr}{cd().rawMax.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </Show>
+
+                {/* Renderizado de Gráfica SVG */}
                 <Show
                   when={chartData()}
                   fallback={
@@ -798,72 +1129,60 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
                   }
                 >
                   {(cd) => (
-                    <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        'overflow-x': 'auto',
+                        position: 'relative',
+                        padding: '8px',
+                        'border-radius': '14px',
+                        background: 'var(--m3-surface-container-lowest)',
+                        border: '1px solid var(--m3-outline-variant)',
+                      }}
+                    >
                       <svg
                         viewBox={`0 0 ${cd().width} ${cd().height}`}
-                        style={{ width: '100%', height: 'auto', 'max-height': '280px', display: 'block' }}
+                        style={{
+                          width: `${cd().width}px`,
+                          'min-width': '100%',
+                          height: `${cd().height}px`,
+                          display: 'block',
+                        }}
                       >
                         <defs>
                           <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="var(--m3-primary)" stop-opacity="0.45" />
-                            <stop offset="100%" stop-color="var(--m3-primary)" stop-opacity="0.0" />
+                            <stop offset="0%" stop-color="var(--m3-primary)" stop-opacity="0.5" />
+                            <stop offset="100%" stop-color="var(--m3-primary)" stop-opacity="0.02" />
                           </linearGradient>
                         </defs>
 
-                        {/* Líneas Guía Horizontales */}
-                        <line
-                          x1={cd().padding.left}
-                          y1={cd().padding.top}
-                          x2={cd().width - cd().padding.right}
-                          y2={cd().padding.top}
-                          stroke="var(--m3-outline-variant)"
-                          stroke-dasharray="4 4"
-                        />
-                        <text
-                          x={cd().padding.left - 8}
-                          y={cd().padding.top + 4}
-                          text-anchor="end"
-                          fill="var(--m3-outline)"
-                          font-size="10"
-                        >
-                          ${cd().maxP.toFixed(2)}
-                        </text>
-
-                        <line
-                          x1={cd().padding.left}
-                          y1={cd().padding.top + cd().innerHeight / 2}
-                          x2={cd().width - cd().padding.right}
-                          y2={cd().padding.top + cd().innerHeight / 2}
-                          stroke="var(--m3-outline-variant)"
-                          stroke-dasharray="2 4"
-                          opacity="0.5"
-                        />
-                        <text
-                          x={cd().padding.left - 8}
-                          y={cd().padding.top + cd().innerHeight / 2 + 4}
-                          text-anchor="end"
-                          fill="var(--m3-outline)"
-                          font-size="10"
-                        >
-                          ${((cd().maxP + cd().minP) / 2).toFixed(2)}
-                        </text>
-
-                        <line
-                          x1={cd().padding.left}
-                          y1={cd().padding.top + cd().innerHeight}
-                          x2={cd().width - cd().padding.right}
-                          y2={cd().padding.top + cd().innerHeight}
-                          stroke="var(--m3-outline-variant)"
-                        />
-                        <text
-                          x={cd().padding.left - 8}
-                          y={cd().padding.top + cd().innerHeight + 4}
-                          text-anchor="end"
-                          fill="var(--m3-outline)"
-                          font-size="10"
-                        >
-                          ${cd().minP.toFixed(2)}
-                        </text>
+                        {/* Líneas Guía Horizontales Recalculadas Dinámicamente */}
+                        <For each={cd().yLevels}>
+                          {(lvl, idx) => (
+                            <g>
+                              <line
+                                x1={cd().padding.left}
+                                y1={lvl.y}
+                                x2={cd().width - cd().padding.right}
+                                y2={lvl.y}
+                                stroke="var(--m3-outline-variant)"
+                                stroke-dasharray={idx() === 0 || idx() === 4 ? 'none' : '3 4'}
+                                opacity={idx() === 0 || idx() === 4 ? 0.9 : 0.45}
+                              />
+                              <text
+                                x={cd().padding.left - 10}
+                                y={lvl.y + 4}
+                                text-anchor="end"
+                                fill="var(--m3-outline)"
+                                font-size="11"
+                                font-family="var(--font-display)"
+                                font-weight="600"
+                              >
+                                {cd().curr}{lvl.price.toFixed(2)}
+                              </text>
+                            </g>
+                          )}
+                        </For>
 
                         {/* Área sombreada bajo la curva */}
                         <path d={cd().areaD} fill="url(#priceGradient)" />
@@ -873,93 +1192,154 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
                           d={cd().pathD}
                           fill="none"
                           stroke="var(--m3-primary)"
-                          stroke-width="2.5"
+                          stroke-width="3"
                           stroke-linecap="round"
                           stroke-linejoin="round"
                         />
 
-                        {/* Puntos interactivos */}
+                        {/* Puntos interactivos con soporte de etiquetas de valor */}
                         <For each={cd().points}>
-                          {(pt) => (
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={hoveredPoint()?.item === pt.item ? '6' : '3.5'}
-                              fill={hoveredPoint()?.item === pt.item ? '#ffffff' : 'var(--m3-primary)'}
-                              stroke="var(--m3-on-primary-container)"
-                              stroke-width="2"
-                              style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
-                              onMouseEnter={() => setHoveredPoint(pt)}
-                              onMouseLeave={() => setHoveredPoint(null)}
-                            />
-                          )}
+                          {(pt) => {
+                            const isHovered = () => hoveredPoint()?.item === pt.item;
+                            const showLabel = () => showPointValues() || zoomLevel() >= 3.0;
+
+                            return (
+                              <g>
+                                {/* Círculo del Punto de Datos */}
+                                <circle
+                                  cx={pt.x}
+                                  cy={pt.y}
+                                  r={isHovered() ? '7' : showLabel() ? '4.5' : '3.5'}
+                                  fill={isHovered() ? '#ffffff' : 'var(--m3-primary)'}
+                                  stroke="var(--m3-surface)"
+                                  stroke-width="2"
+                                  style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                  onMouseEnter={() => setHoveredPoint(pt)}
+                                  onMouseLeave={() => setHoveredPoint(null)}
+                                />
+
+                                {/* Etiqueta de Valor Flotante sobre el Punto */}
+                                <Show when={showLabel()}>
+                                  <g transform={`translate(${pt.x}, ${pt.y - 12})`} style={{ 'pointer-events': 'none' }}>
+                                    <rect
+                                      x="-22"
+                                      y="-13"
+                                      width="44"
+                                      height="16"
+                                      rx="4"
+                                      fill="var(--m3-surface-container-highest)"
+                                      stroke="var(--m3-outline-variant)"
+                                      stroke-width="0.8"
+                                      opacity="0.95"
+                                    />
+                                    <text
+                                      x="0"
+                                      y="-1"
+                                      text-anchor="middle"
+                                      fill="var(--m3-on-surface)"
+                                      font-size="9"
+                                      font-weight="700"
+                                      font-family="var(--font-display)"
+                                    >
+                                      {cd().curr}{pt.item.price.toFixed(2)}
+                                    </text>
+                                  </g>
+                                </Show>
+                              </g>
+                            );
+                          }}
                         </For>
 
                         {/* Fechas en el eje X */}
                         <text
                           x={cd().padding.left}
-                          y={cd().height - 10}
+                          y={cd().height - 12}
                           text-anchor="start"
                           fill="var(--m3-outline)"
-                          font-size="10"
+                          font-size="11"
+                          font-family="var(--font-display)"
+                          font-weight="500"
                         >
                           {cd().firstDate}
                         </text>
                         <text
                           x={cd().padding.left + cd().innerWidth / 2}
-                          y={cd().height - 10}
+                          y={cd().height - 12}
                           text-anchor="middle"
                           fill="var(--m3-outline)"
-                          font-size="10"
+                          font-size="11"
+                          font-family="var(--font-display)"
+                          font-weight="500"
                         >
                           {cd().midDate}
                         </text>
                         <text
                           x={cd().width - cd().padding.right}
-                          y={cd().height - 10}
+                          y={cd().height - 12}
                           text-anchor="end"
                           fill="var(--m3-outline)"
-                          font-size="10"
+                          font-size="11"
+                          font-family="var(--font-display)"
+                          font-weight="500"
                         >
                           {cd().lastDate}
                         </text>
                       </svg>
 
-                      {/* Tooltip flotante interactivo */}
+                      {/* Tooltip flotante interactivo de alta precisión */}
                       <Show when={hoveredPoint()}>
                         {(hp) => (
                           <div
                             style={{
                               position: 'absolute',
-                              left: `${(hp().x / cd().width) * 100}%`,
-                              top: `${(hp().y / cd().height) * 100 - 30}%`,
-                              transform: 'translate(-50%, -100%)',
+                              left: `${hp().x}px`,
+                              top: `${hp().y}px`,
+                              transform: 'translate(-50%, -120%)',
                               background: 'var(--m3-surface-container-highest)',
                               border: '1px solid var(--m3-outline-variant)',
-                              'box-shadow': 'var(--shadow-3)',
-                              'border-radius': '8px',
-                              padding: '8px 12px',
+                              'box-shadow': 'var(--shadow-4)',
+                              'border-radius': '10px',
+                              padding: '10px 14px',
                               'pointer-events': 'none',
-                              'z-index': 20,
+                              'z-index': 30,
                               'white-space': 'nowrap',
-                              'font-size': '0.75rem',
+                              'font-size': '0.8125rem',
+                              'backdrop-filter': 'blur(10px)',
                             }}
                           >
-                            <div style={{ 'font-weight': 700, color: 'var(--m3-on-surface)' }}>
-                              ${hp().item.price.toFixed(2)} {hp().item.currency}
+                            <div style={{ 'font-weight': 800, 'font-size': '1rem', color: '#34d399', display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                              <span>{cd().curr}{hp().item.price.toFixed(2)}</span>
+                              <span style={{ 'font-size': '0.6875rem', color: 'var(--m3-outline)', 'font-weight': 500 }}>
+                                {hp().item.currency}
+                              </span>
                             </div>
-                            <div style={{ color: 'var(--m3-on-surface-variant)', 'font-size': '0.6875rem' }}>
-                              📅 {hp().item.price_date} · 🏪 {hp().item.provider}
+                            <div style={{ color: 'var(--m3-on-surface-variant)', 'font-size': '0.75rem', 'margin-top': '4px' }}>
+                              📅 {hp().item.price_date} · 🏪 {hp().item.provider.toUpperCase()}
+                            </div>
+                            <div style={{ color: 'var(--m3-outline)', 'font-size': '0.6875rem' }}>
+                              Acabado: {hp().item.finish} · Tipo: {hp().item.price_type}
                             </div>
                             <Show when={hp().item.pct_change !== undefined && hp().item.pct_change !== null}>
                               <div
                                 style={{
-                                  color: hp().item.pct_change! > 0 ? '#34d399' : hp().item.pct_change! < 0 ? '#f87171' : 'inherit',
-                                  'font-weight': 600,
-                                  'margin-top': '2px',
+                                  color: hp().item.pct_change! > 0 ? '#34d399' : hp().item.pct_change! < 0 ? '#f87171' : 'var(--m3-on-surface)',
+                                  'font-weight': 700,
+                                  'margin-top': '4px',
+                                  'font-size': '0.75rem',
+                                  display: 'flex',
+                                  'align-items': 'center',
+                                  gap: '4px',
                                 }}
                               >
-                                {hp().item.pct_change! > 0 ? `+${hp().item.pct_change}%` : `${hp().item.pct_change}%`} variación
+                                <span class="material-symbols-outlined" style={{ 'font-size': '14px' }}>
+                                  {hp().item.pct_change! > 0 ? 'trending_up' : hp().item.pct_change! < 0 ? 'trending_down' : 'trending_flat'}
+                                </span>
+                                {hp().item.pct_change! > 0 ? `+${hp().item.pct_change}%` : `${hp().item.pct_change}%`}
+                                {hp().item.price_diff !== undefined && hp().item.price_diff !== null && (
+                                  <span style={{ 'font-weight': 500, color: 'var(--m3-outline)' }}>
+                                    ({hp().item.price_diff > 0 ? `+${hp().item.price_diff.toFixed(2)}` : hp().item.price_diff.toFixed(2)})
+                                  </span>
+                                )}
                               </div>
                             </Show>
                           </div>
