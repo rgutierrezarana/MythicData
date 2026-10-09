@@ -1,0 +1,21 @@
+{
+  "name": "mtg-card-explorer-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-solid": "^0.474.0",
+    "solid-js": "^1.9.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vite-plugin-solid": "^2.11.4"
+  }
+}

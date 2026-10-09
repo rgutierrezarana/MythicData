@@ -1,0 +1,43 @@
+FROM python:3.10-slim
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        default-jre-headless \
+        procps \
+        curl \
+        wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV SPARK_HOME=/opt/spark
+ENV PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
+
+# Descargar e instalar Apache Spark 3.5.1 oficial precompilado con Hadoop 3
+RUN wget -q https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz -O /tmp/spark.tgz && \
+    mkdir -p /opt/spark && \
+    tar -xf /tmp/spark.tgz -C /opt/spark --strip-components=1 && \
+    rm /tmp/spark.tgz
+
+# Descargar driver JDBC de PostgreSQL
+RUN wget -q https://jdbc.postgresql.org/download/postgresql-42.7.3.jar -O /opt/spark/jars/postgresql-42.7.3.jar
+
+# Instalar dependencias para PySpark worker y observabilidad distribuida (OpenTelemetry / OpenTracing + Jaeger)
+RUN pip install --no-cache-dir \
+    pyarrow \
+    fastparquet \
+    psycopg2-binary \
+    requests \
+    urllib3 \
+    opentelemetry-api \
+    opentelemetry-sdk \
+    opentelemetry-exporter-otlp-proto-http \
+    opentelemetry-exporter-otlp-proto-grpc \
+    opentracing
+
+ENV PYSPARK_PYTHON=/usr/local/bin/python3
+ENV PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3
+
+WORKDIR /opt/spark

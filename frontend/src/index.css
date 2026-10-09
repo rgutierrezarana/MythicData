@@ -1,0 +1,328 @@
+/* ==============================================================================
+   Material Design 3 (M3) Design System & Magic: The Gathering Theme
+   ============================================================================== */
+
+:root, [data-theme="dark"] {
+  --m3-primary: #d0bcff;
+  --m3-on-primary: #381e72;
+  --m3-primary-container: #4f378b;
+  --m3-on-primary-container: #eaddff;
+  
+  --m3-secondary: #ccc2dc;
+  --m3-on-secondary: #332d41;
+  --m3-secondary-container: #4a4458;
+  --m3-on-secondary-container: #e8def8;
+
+  --m3-tertiary: #efb8c8;
+  --m3-on-tertiary: #492532;
+  --m3-tertiary-container: #633b48;
+  --m3-on-tertiary-container: #ffd8e4;
+
+  --m3-surface: #141218;
+  --m3-surface-dim: #141218;
+  --m3-surface-bright: #3b383e;
+  --m3-surface-container-lowest: #0f0d13;
+  --m3-surface-container-low: #1d1b20;
+  --m3-surface-container: #211f26;
+  --m3-surface-container-high: #2b2930;
+  --m3-surface-container-highest: #36343b;
+  --m3-on-surface: #e6e0e9;
+  --m3-on-surface-variant: #cac4d0;
+  --m3-outline: #938f99;
+  --m3-outline-variant: #49454f;
+
+  --m3-error: #f2b8b5;
+  --m3-on-error: #601410;
+  --m3-error-container: #8c1d18;
+  --m3-on-error-container: #f9dedc;
+
+  --m3-gold: #f59e0b;
+  --m3-gold-container: rgba(245, 158, 11, 0.15);
+  
+  --shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.35), 0px 1px 2px 0px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.4), 0px 1px 2px 0px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.45), 0px 1px 3px 0px rgba(0, 0, 0, 0.5);
+  --shadow-4: 0px 6px 10px 4px rgba(0, 0, 0, 0.5), 0px 2px 3px 0px rgba(0, 0, 0, 0.55);
+  --shadow-5: 0px 8px 12px 6px rgba(0, 0, 0, 0.55), 0px 4px 4px 0px rgba(0, 0, 0, 0.6);
+
+  --mana-white: #f8f6d8;
+  --mana-white-bg: #fffbd5;
+  --mana-blue: #0e68ab;
+  --mana-blue-bg: #b9e6fe;
+  --mana-black: #150b00;
+  --mana-black-bg: #807c72;
+  --mana-red: #d3202a;
+  --mana-red-bg: #f9aa8f;
+  --mana-green: #00733e;
+  --mana-green-bg: #9bd3ae;
+  --mana-colorless: #a69f9d;
+
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+[data-theme="light"] {
+  --m3-primary: #6750a4;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #eaddff;
+  --m3-on-primary-container: #21005d;
+  
+  --m3-secondary: #625b71;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #e8def8;
+  --m3-on-secondary-container: #1d192b;
+
+  --m3-surface: #fef7ff;
+  --m3-surface-container-low: #f7f2fa;
+  --m3-surface-container: #f3edf7;
+  --m3-surface-container-high: #ece6f0;
+  --m3-surface-container-highest: #e6e0e9;
+  --m3-on-surface: #1d1b20;
+  --m3-on-surface-variant: #49454f;
+  --m3-outline: #79747e;
+  --m3-outline-variant: #cac4d0;
+
+  --shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.2);
+  --shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.2);
+  --shadow-3: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px 0px rgba(0, 0, 0, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--m3-surface);
+  color: var(--m3-on-surface);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--m3-surface-container-lowest);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--m3-outline-variant);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--m3-outline);
+}
+
+/* Typography Helpers */
+h1, h2, h3, h4, h5, h6, .display-font {
+  font-family: var(--font-display);
+}
+
+/* Material Symbols Icon helper */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* Button & Chip Base Styles (M3) */
+.m3-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.m3-btn-filled {
+  background-color: var(--m3-primary);
+  color: var(--m3-on-primary);
+  box-shadow: var(--shadow-1);
+}
+.m3-btn-filled:hover {
+  box-shadow: var(--shadow-2);
+  filter: brightness(1.08);
+}
+.m3-btn-filled:active {
+  box-shadow: var(--shadow-1);
+  transform: scale(0.98);
+}
+
+.m3-btn-tonal {
+  background-color: var(--m3-secondary-container);
+  color: var(--m3-on-secondary-container);
+}
+.m3-btn-tonal:hover {
+  box-shadow: var(--shadow-1);
+  filter: brightness(1.1);
+}
+
+.m3-btn-outlined {
+  background-color: transparent;
+  color: var(--m3-primary);
+  border: 1px solid var(--m3-outline);
+}
+.m3-btn-outlined:hover {
+  background-color: rgba(208, 188, 255, 0.08);
+  border-color: var(--m3-primary);
+}
+
+.m3-btn-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--m3-on-surface-variant);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.m3-btn-icon:hover {
+  background-color: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
+}
+
+/* Mana Symbol Styles */
+.mana-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  line-height: 1;
+  text-align: center;
+  flex-shrink: 0;
+}
+.mana-W { background: #fffbd5; color: #1e1e1e; border: 1px solid #d4ce9a; }
+.mana-U { background: #0e68ab; color: #ffffff; border: 1px solid #094777; }
+.mana-B { background: #26211e; color: #d6d3d1; border: 1px solid #141210; }
+.mana-R { background: #d3202a; color: #ffffff; border: 1px solid #99141c; }
+.mana-G { background: #00733e; color: #ffffff; border: 1px solid #004d2a; }
+.mana-C { background: #cbc2be; color: #292524; border: 1px solid #9e9794; }
+.mana-generic { background: #cbc2be; color: #1c1917; border: 1px solid #9e9794; }
+.mana-tap { background: #292524; color: #f5f5f4; border: 1px solid #1c1917; font-size: 13px; }
+
+/* Filter Chips */
+.m3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--m3-outline-variant);
+  background-color: var(--m3-surface-container-low);
+  color: var(--m3-on-surface-variant);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.m3-chip:hover {
+  background-color: var(--m3-surface-container-high);
+  color: var(--m3-on-surface);
+  border-color: var(--m3-outline);
+}
+.m3-chip.active {
+  background-color: var(--m3-secondary-container);
+  color: var(--m3-on-secondary-container);
+  border-color: var(--m3-secondary-container);
+  box-shadow: var(--shadow-1);
+}
+
+/* Rarity Badges */
+.rarity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.rarity-mythic {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.25), rgba(249, 115, 22, 0.35));
+  color: #fb923c;
+  border: 1px solid #ea580c;
+}
+.rarity-rare {
+  background: linear-gradient(135deg, rgba(202, 138, 4, 0.25), rgba(234, 179, 8, 0.35));
+  color: #facc15;
+  border: 1px solid #ca8a04;
+}
+.rarity-uncommon {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.25), rgba(148, 163, 184, 0.35));
+  color: #cbd5e1;
+  border: 1px solid #64748b;
+}
+.rarity-common {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid #475569;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-popover {
+  animation: popoverIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Shimmer Skeleton Loader */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--m3-surface-container-high) 25%,
+    var(--m3-surface-container-highest) 50%,
+    var(--m3-surface-container-high) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}

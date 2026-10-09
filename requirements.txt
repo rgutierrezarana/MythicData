@@ -1,0 +1,24 @@
+# Big Data & Data Processing
+pyspark==3.5.1
+pyarrow>=14.0.0
+fastparquet>=2024.2.0
+
+# Database & Connectors (Airflow 2.9 requiere SQLAlchemy 1.4.x)
+psycopg2-binary>=2.9.9
+SQLAlchemy>=1.4.36,<2.0.0
+
+# Web Application (FastAPI & Server)
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# Distributed Tracing & Observability (OpenTracing / OpenTelemetry + Jaeger)
+opentelemetry-api>=1.24.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-exporter-otlp-proto-http>=1.24.0
+opentelemetry-exporter-otlp-proto-grpc>=1.24.0
+opentracing>=2.4.0
+
+# Utilities
+python-dotenv>=1.0.0
