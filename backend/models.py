@@ -65,6 +65,8 @@ class CardModel(Base):
     current_price_foil = Column(Numeric(12, 4), nullable=True)
     current_price_date = Column(Date, nullable=True, index=True)
     current_price_provider = Column(String(50), nullable=True)
+    is_streaming_enabled = Column(Boolean, default=False, index=True)
+    streaming_enabled_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relaciones

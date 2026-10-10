@@ -64,6 +64,8 @@ ALTER TABLE cards ADD COLUMN IF NOT EXISTS current_price_eur NUMERIC(12,4);
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS current_price_foil NUMERIC(12,4);
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS current_price_date DATE;
 ALTER TABLE cards ADD COLUMN IF NOT EXISTS current_price_provider VARCHAR(50);
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS is_streaming_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS streaming_enabled_at TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS idx_cards_set_code ON cards(set_code);
 CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);
@@ -72,6 +74,7 @@ CREATE INDEX IF NOT EXISTS idx_cards_scryfall_id ON cards(scryfall_id);
 CREATE INDEX IF NOT EXISTS idx_cards_tcgplayer_id ON cards(tcgplayer_product_id);
 CREATE INDEX IF NOT EXISTS idx_cards_price_usd ON cards(current_price_usd);
 CREATE INDEX IF NOT EXISTS idx_cards_price_date ON cards(current_price_date DESC);
+CREATE INDEX IF NOT EXISTS idx_cards_streaming_enabled ON cards(is_streaming_enabled);
 
 -- ----------------------------------------------------------------------------
 -- 3. Tabla de Precios Actuales (Card Current Prices)
