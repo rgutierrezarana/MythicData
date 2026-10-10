@@ -1,6 +1,7 @@
 import {
   CardSummary,
   CardDetail,
+  CardPricePrediction,
   FilterMetadata,
   PaginatedResponse,
   CardFilterParams,
@@ -50,6 +51,22 @@ export async function fetchCardDetail(
   return res.json();
 }
 
+export async function fetchCardPrediction(
+  uuid: string,
+  signal?: AbortSignal
+): Promise<CardPricePrediction | null> {
+  try {
+    const res = await fetch(`${API_BASE}/cards/${uuid}/prediction`, { signal });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      return null;
+    }
+    return res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function fetchCardPriceHistory(
   uuid: string,
   params?: PriceHistoryFilterParams,
@@ -92,3 +109,96 @@ export async function fetchFilterMetadata(
   }
   return res.json();
 }
+
+// ==============================================================================
+// Servicios de Ingesta, Apache Airflow y Trazas Jaeger
+// ==============================================================================
+
+import type {
+  IngestionConfigResponse,
+  IngestionTriggerRequest,
+  IngestionTriggerResponse,
+  IngestionStatusResponse,
+  IngestionLogResponse,
+  IngestionHistoryResponse,
+  JaegerTracesResponse
+} from '../types/ingestion';
+
+export async function fetchIngestionConfig(signal?: AbortSignal): Promise<IngestionConfigResponse> {
+  const res = await fetch(`${API_BASE}/ingestion/config`, { signal });
+  if (!res.ok) {
+    throw new Error(`Error al consultar configuración de ingesta (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function triggerIngestion(
+  req: IngestionTriggerRequest,
+  signal?: AbortSignal
+): Promise<IngestionTriggerResponse> {
+  const res = await fetch(`${API_BASE}/ingestion/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+    signal
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Error al iniciar ingesta (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchIngestionStatus(
+  dagId: string,
+  dagRunId: string,
+  signal?: AbortSignal
+): Promise<IngestionStatusResponse> {
+  const res = await fetch(`${API_BASE}/ingestion/status/${encodeURIComponent(dagId)}/${encodeURIComponent(dagRunId)}`, {
+    signal
+  });
+  if (!res.ok) {
+    throw new Error(`Error al consultar estado de ingesta (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchIngestionLogs(
+  dagId: string,
+  dagRunId: string,
+  taskId?: string,
+  signal?: AbortSignal
+): Promise<IngestionLogResponse> {
+  const url = new URL(`${window.location.origin}${API_BASE}/ingestion/logs/${encodeURIComponent(dagId)}/${encodeURIComponent(dagRunId)}`);
+  if (taskId) {
+    url.searchParams.set('task_id', taskId);
+  }
+  const res = await fetch(url.toString(), { signal });
+  if (!res.ok) {
+    throw new Error(`Error al consultar logs de ingesta (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchIngestionHistory(
+  limit: number = 15,
+  signal?: AbortSignal
+): Promise<IngestionHistoryResponse> {
+  const res = await fetch(`${API_BASE}/ingestion/history?limit=${limit}`, { signal });
+  if (!res.ok) {
+    throw new Error(`Error al consultar historial de ingestas (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchJaegerTraces(
+  limit: number = 10,
+  signal?: AbortSignal
+): Promise<JaegerTracesResponse> {
+  const res = await fetch(`${API_BASE}/ingestion/jaeger-traces?limit=${limit}`, { signal });
+  if (!res.ok) {
+    throw new Error(`Error al consultar trazas de Jaeger (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+

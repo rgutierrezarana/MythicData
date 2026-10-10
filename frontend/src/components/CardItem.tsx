@@ -36,7 +36,7 @@ export const CardItem: Component<CardItemProps> = (props) => {
 
   return (
     <div
-      class="animate-fade-in"
+      class="animate-fade-in card-grid-item"
       onClick={() => props.onClick(props.card)}
       onMouseEnter={(e) => props.onHoverStart(props.card, e)}
       onMouseLeave={props.onHoverEnd}
@@ -48,19 +48,8 @@ export const CardItem: Component<CardItemProps> = (props) => {
         cursor: 'pointer',
         display: 'flex',
         'flex-direction': 'column',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         'box-shadow': 'var(--shadow-1)'
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.transform = 'translateY(-4px)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-3)';
-        e.currentTarget.style.borderColor = 'var(--m3-primary)';
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-1)';
-        e.currentTarget.style.borderColor = 'var(--m3-outline-variant)';
       }}
     >
       {/* Contenedor de Imagen de la Carta */}

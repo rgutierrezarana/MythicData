@@ -222,6 +222,132 @@ export const CardDetailModal: Component<CardDetailModalProps> = (props) => {
                     </div>
                   </div>
 
+                  {/* Proyección Predictiva con Machine Learning (GBTRegressor) */}
+                  <Show when={detail()?.prediction}>
+                    {(pred) => {
+                      const isUp = pred().direction === 'UP';
+                      const isDown = pred().direction === 'DOWN';
+                      const trendColor = isUp ? '#10b981' : isDown ? '#ef4444' : '#a855f7';
+                      const trendBg = isUp ? 'rgba(16, 185, 129, 0.12)' : isDown ? 'rgba(239, 68, 68, 0.12)' : 'rgba(168, 85, 247, 0.12)';
+                      const trendIcon = isUp ? 'trending_up' : isDown ? 'trending_down' : 'trending_flat';
+                      const changeSign = (pred().expected_change_pct || 0) > 0 ? '+' : '';
+
+                      return (
+                        <div
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)',
+                            'border-radius': '16px',
+                            border: '1px solid rgba(168, 85, 247, 0.35)',
+                            padding: '16px',
+                            display: 'flex',
+                            'flex-direction': 'column',
+                            gap: '12px',
+                            'box-shadow': '0 4px 20px rgba(0, 0, 0, 0.18)',
+                          }}
+                        >
+                          {/* Cabecera del Modelo ML */}
+                          <div style={{ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between', 'flex-wrap': 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                              <span
+                                class="material-symbols-outlined"
+                                style={{
+                                  background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+                                  color: '#fff',
+                                  padding: '6px',
+                                  'border-radius': '8px',
+                                  'font-size': '20px',
+                                }}
+                              >
+                                psychology
+                              </span>
+                              <div>
+                                <div style={{ 'font-size': '0.9375rem', 'font-weight': 800, color: 'var(--m3-on-surface)' }}>
+                                  Pronóstico de Próximo Precio (Spark MLlib)
+                                </div>
+                                <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-on-surface-variant)' }}>
+                                  Modelo Gradient Boosted Trees: {pred().model_name}
+                                </div>
+                              </div>
+                            </div>
+
+                            <span
+                              style={{
+                                background: 'rgba(168, 85, 247, 0.15)',
+                                color: '#c084fc',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                padding: '3px 8px',
+                                'border-radius': '8px',
+                                'font-size': '0.6875rem',
+                                'font-weight': 700,
+                                display: 'flex',
+                                'align-items': 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <span class="material-symbols-outlined" style={{ 'font-size': '14px' }}>verified</span>
+                              {pred().confidence_score}% Confianza R²
+                            </span>
+                          </div>
+
+                          {/* Comparativa de Precio Actual vs Predicho */}
+                          <div
+                            style={{
+                              display: 'grid',
+                              'grid-template-columns': 'repeat(auto-fit, minmax(130px, 1fr))',
+                              gap: '12px',
+                              background: 'var(--m3-surface-container)',
+                              padding: '12px 14px',
+                              'border-radius': '12px',
+                              border: '1px solid var(--m3-outline-variant)',
+                            }}
+                          >
+                            <div>
+                              <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-on-surface-variant)' }}>Precio Actual de Mercado</div>
+                              <div style={{ 'font-size': '1.125rem', 'font-weight': 800, color: 'var(--m3-on-surface)' }}>
+                                ${pred().current_price?.toFixed(2) || '0.00'} USD
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={{ 'font-size': '0.6875rem', color: '#c084fc', 'font-weight': 600 }}>Próximo Precio Estimado (t+1)</div>
+                              <div style={{ 'font-size': '1.25rem', 'font-weight': 900, color: '#38bdf8' }}>
+                                ${pred().predicted_next_price?.toFixed(2) || '0.00'} USD
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', 'flex-direction': 'column', 'justify-content': 'center' }}>
+                              <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-on-surface-variant)' }}>Tendencia Estimada</div>
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  'align-items': 'center',
+                                  gap: '4px',
+                                  background: trendBg,
+                                  color: trendColor,
+                                  padding: '4px 8px',
+                                  'border-radius': '8px',
+                                  'font-size': '0.8125rem',
+                                  'font-weight': 800,
+                                  width: 'fit-content',
+                                  'margin-top': '2px',
+                                }}
+                              >
+                                <span class="material-symbols-outlined" style={{ 'font-size': '16px' }}>{trendIcon}</span>
+                                {changeSign}{pred().expected_change_pct}% ({pred().direction})
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Explicación de Variables de Entrada */}
+                          <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-outline)', display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                            <span class="material-symbols-outlined" style={{ 'font-size': '14px' }}>info</span>
+                            Entrenado con lags temporales (t-1, t-3, t-7), medias móviles (7d/14d), momentum y volatilidad histórica.
+                          </div>
+                        </div>
+                      );
+                    }}
+                  </Show>
+
                   {/* Tabla de Cotizaciones de Precios Actuales */}
                   <div>
                     <h3 style={{ 'font-size': '0.9375rem', 'font-weight': 700, 'margin-bottom': '10px', display: 'flex', 'align-items': 'center', gap: '6px' }}>

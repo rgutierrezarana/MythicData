@@ -8,6 +8,9 @@ interface TopAppBarProps {
   isSidebarOpen: boolean;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  currentView?: 'catalog' | 'ingestion';
+  onNavigateToIngestion?: () => void;
+  onNavigateToCatalog?: () => void;
 }
 
 export const TopAppBar: Component<TopAppBarProps> = (props) => {
@@ -171,8 +174,29 @@ export const TopAppBar: Component<TopAppBarProps> = (props) => {
         </div>
       </div>
 
-      {/* Lado Derecho: Conteo de Cartas + Modo Oscuro */}
+      {/* Lado Derecho: Botón Ingesta + Conteo + Modo Oscuro */}
       <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+        {/* Botón de Ingesta & ETL */}
+        <button
+          type="button"
+          class={`m3-btn ${props.currentView === 'ingestion' ? 'm3-btn-filled' : 'm3-btn-tonal'}`}
+          onClick={() => {
+            if (props.currentView === 'ingestion') {
+              props.onNavigateToCatalog?.();
+            } else {
+              props.onNavigateToIngestion?.();
+            }
+          }}
+          style={{ height: '36px', padding: '0 12px', 'font-size': '0.75rem', gap: '6px', cursor: 'pointer', 'font-weight': 700 }}
+          title={props.currentView === 'ingestion' ? 'Volver al Catálogo' : 'Abrir Centro de Ingesta & Pipelines ETL'}
+        >
+          <span class="material-symbols-outlined" style={{ 'font-size': '18px' }}>
+            {props.currentView === 'ingestion' ? 'grid_view' : 'sync_saved_locally'}
+          </span>
+          <span>{props.currentView === 'ingestion' ? 'Catálogo' : 'Ingesta & ETL'}</span>
+        </button>
+
+        {/* Conteo de Cartas */}
         <div
           style={{
             background: 'var(--m3-surface-container-high)',
@@ -194,6 +218,35 @@ export const TopAppBar: Component<TopAppBarProps> = (props) => {
           <span>{props.totalCards.toLocaleString()} Cartas</span>
         </div>
 
+        {/* Enlace rápido a Airflow */}
+        <a
+          href="http://localhost:8080"
+          target="_blank"
+          rel="noreferrer"
+          class="m3-btn-icon"
+          title="Abrir Apache Airflow (localhost:8080)"
+          style={{ 'text-decoration': 'none' }}
+        >
+          <span class="material-symbols-outlined" style={{ 'font-size': '20px', color: '#10b981' }}>
+            air
+          </span>
+        </a>
+
+        {/* Enlace rápido a Jaeger */}
+        <a
+          href="http://localhost:16686"
+          target="_blank"
+          rel="noreferrer"
+          class="m3-btn-icon"
+          title="Abrir Jaeger Tracing (localhost:16686)"
+          style={{ 'text-decoration': 'none' }}
+        >
+          <span class="material-symbols-outlined" style={{ 'font-size': '20px', color: '#a78bfa' }}>
+            insights
+          </span>
+        </a>
+
+        {/* Modo Claro / Oscuro */}
         <button
           class="m3-btn-icon"
           onClick={props.onToggleTheme}

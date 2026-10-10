@@ -2,35 +2,74 @@ import { Component, Show, createSignal, For } from 'solid-js';
 import { CardSummary, PricePoint } from '../types/card';
 import { ManaSymbol } from './ManaSymbol';
 
+export interface PopoverPosition {
+  x: number;
+  y: number;
+  rect?: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    width: number;
+    height: number;
+  };
+}
+
 interface CardHoverDetailsProps {
   card: CardSummary;
-  position: { x: number; y: number };
+  position: PopoverPosition;
   onCardClick?: (card: CardSummary) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export const CardHoverDetails: Component<CardHoverDetailsProps> = (props) => {
   const [sortBy, setSortBy] = createSignal<'price_asc' | 'price_desc' | 'provider' | 'finish'>('price_asc');
 
-  // Ajustar posición para que no se salga de los límites de la pantalla
+  // Ajustar posición para que no se salga de los límites de la pantalla y quede acoplado a la carta
   const getStyle = () => {
     const popoverWidth = 360;
-    const isRightOverflow = props.position.x + popoverWidth > window.innerWidth - 20;
-    const left = isRightOverflow ? props.position.x - popoverWidth - 20 : props.position.x + 20;
-    
-    // Evitar desborde vertical
-    const popoverHeight = 490;
-    let top = props.position.y - 80;
-    if (top + popoverHeight > window.innerHeight - 20) {
-      top = window.innerHeight - popoverHeight - 20;
+    const popoverHeight = 520;
+    let left = 0;
+    let top = 0;
+
+    if (props.position.rect) {
+      const rect = props.position.rect;
+      // Intenta colocar a la derecha de la carta con un pequeño offset
+      if (rect.right + 12 + popoverWidth <= window.innerWidth - 12) {
+        left = rect.right + 12;
+      }
+      // Si no cabe a la derecha, coloca a la izquierda de la carta
+      else if (rect.left - 12 - popoverWidth >= 12) {
+        left = rect.left - 12 - popoverWidth;
+      }
+      // Si no cabe en ningún lado, alinear al borde de la pantalla
+      else {
+        left = Math.max(12, window.innerWidth - popoverWidth - 12);
+      }
+
+      // Alinear verticalmente con la carta asegurando que quepa en pantalla
+      top = rect.top;
+      if (top + popoverHeight > window.innerHeight - 16) {
+        top = window.innerHeight - popoverHeight - 16;
+      }
+      if (top < 70) top = 70;
+    } else {
+      const isRightOverflow = props.position.x + popoverWidth > window.innerWidth - 20;
+      left = isRightOverflow ? props.position.x - popoverWidth - 20 : props.position.x + 20;
+      top = props.position.y - 80;
+      if (top + popoverHeight > window.innerHeight - 20) {
+        top = window.innerHeight - popoverHeight - 20;
+      }
+      if (top < 70) top = 70;
     }
-    if (top < 70) top = 70;
 
     return {
       position: 'fixed' as const,
       top: `${top}px`,
       left: `${Math.max(10, left)}px`,
       width: `${popoverWidth}px`,
-      'z-index': 100,
+      'z-index': 1000,
       'pointer-events': 'auto' as const,
     };
   };
@@ -119,6 +158,8 @@ export const CardHoverDetails: Component<CardHoverDetailsProps> = (props) => {
   return (
     <div
       class="animate-popover"
+      onMouseEnter={() => props.onMouseEnter?.()}
+      onMouseLeave={() => props.onMouseLeave?.()}
       style={{
         ...getStyle(),
         background: 'var(--m3-surface-container-high)',
@@ -136,7 +177,16 @@ export const CardHoverDetails: Component<CardHoverDetailsProps> = (props) => {
       {/* Cabecera: Nombre + Coste de Maná */}
       <div style={{ display: 'flex', 'align-items': 'flex-start', 'justify-content': 'space-between', gap: '8px' }}>
         <div>
-          <h3 style={{ 'font-size': '1.0625rem', 'font-weight': 700, 'line-height': 1.2 }}>
+          <h3
+            style={{
+              'font-size': '1.0625rem',
+              'font-weight': 700,
+              'line-height': 1.2,
+              cursor: 'pointer'
+            }}
+            onClick={() => props.onCardClick?.(props.card)}
+            title="Ver detalle completo"
+          >
             {props.card.name}
           </h3>
           <span style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)' }}>
@@ -169,8 +219,11 @@ export const CardHoverDetails: Component<CardHoverDetailsProps> = (props) => {
           display: 'flex',
           'align-items': 'center',
           'justify-content': 'center',
-          border: '1px solid var(--m3-outline-variant)'
+          border: '1px solid var(--m3-outline-variant)',
+          cursor: 'pointer'
         }}
+        onClick={() => props.onCardClick?.(props.card)}
+        title="Ver pantalla completa"
       >
         <Show
           when={props.card.image_url}
@@ -292,7 +345,8 @@ export const CardHoverDetails: Component<CardHoverDetailsProps> = (props) => {
           gap: '6px',
           cursor: 'pointer'
         }}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (props.onCardClick) props.onCardClick(props.card);
         }}
       >

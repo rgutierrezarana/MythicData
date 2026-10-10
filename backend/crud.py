@@ -1,13 +1,14 @@
 import math
 from datetime import datetime, timedelta, date
 from typing import Optional, List, Dict, Any, Tuple
-from sqlalchemy import func, or_, and_, desc, asc
+from sqlalchemy import func, or_, and_, desc, asc, text
 from sqlalchemy.orm import Session, joinedload
 
 from backend.models import CardModel, SetModel, CardCurrentPriceModel, CardPriceHistoryModel
 from backend.schemas import (
     CardSummary,
     CardDetail,
+    CardPricePrediction,
     SetSummary,
     PricePoint,
     PriceHistoryItem,
@@ -279,8 +280,48 @@ def get_card_detail_by_uuid(db: Session, uuid: str) -> Optional[CardDetail]:
         prices=prices_list,
         recent_history=history_resp.history,
         price_stats=history_resp.stats,
-        set_info=set_info
+        set_info=set_info,
+        prediction=get_card_prediction(db, uuid)
     )
+
+
+def get_card_prediction(db: Session, uuid: str) -> Optional[CardPricePrediction]:
+    """Obtiene la proyección estimada del próximo precio calculada por GBTRegressor para una carta."""
+    try:
+        row = db.execute(
+            text("""
+            SELECT 
+                card_uuid, 
+                CAST(current_price AS FLOAT), 
+                CAST(predicted_next_price AS FLOAT), 
+                CAST(expected_change_pct AS FLOAT), 
+                direction, 
+                CAST(confidence_score AS FLOAT), 
+                model_name, 
+                features_used, 
+                predicted_at
+            FROM card_price_predictions
+            WHERE card_uuid = :uuid
+            """),
+            {"uuid": uuid}
+        ).fetchone()
+
+        if row:
+            return CardPricePrediction(
+                card_uuid=row[0],
+                current_price=row[1],
+                predicted_next_price=row[2],
+                expected_change_pct=row[3],
+                direction=row[4],
+                confidence_score=row[5],
+                model_name=row[6] or "GBTRegressor",
+                features_used=row[7],
+                predicted_at=row[8]
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger("MTGBackend").warning(f"Error consultando predicción de carta {uuid}: {e}")
+    return None
 
 
 def get_card_price_history_filtered(

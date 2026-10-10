@@ -93,6 +93,21 @@ class CardSummary(BaseModel):
         from_attributes = True
 
 
+class CardPricePrediction(BaseModel):
+    card_uuid: str
+    current_price: Optional[float] = None
+    predicted_next_price: Optional[float] = None
+    expected_change_pct: Optional[float] = None
+    direction: Optional[str] = None
+    confidence_score: Optional[float] = None
+    model_name: str = "GBTRegressor"
+    features_used: Optional[str] = None
+    predicted_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class CardDetail(CardSummary):
     oracle_text: Optional[str] = None
     colors: Optional[str] = None
@@ -108,6 +123,7 @@ class CardDetail(CardSummary):
     recent_history: List[PriceHistoryItem] = Field(default_factory=list)
     price_stats: Optional[PriceStats] = None
     set_info: Optional[SetSummary] = None
+    prediction: Optional[CardPricePrediction] = None
 
     class Config:
         from_attributes = True
@@ -134,3 +150,99 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int
     page_size: int
     total_pages: int
+
+
+# ==============================================================================
+# Modelos para Ingesta de Datos, Pipelines Airflow y Trazas Jaeger
+# ==============================================================================
+
+class IngestionTriggerRequest(BaseModel):
+    dag_id: str = "selected_set_ingestion"
+    set_codes: List[str] = Field(default_factory=lambda: ["MH3", "FDN"])
+    load_history: bool = False
+
+
+class IngestionTriggerResponse(BaseModel):
+    dag_id: str
+    dag_run_id: str
+    state: str
+    logical_date: Optional[str] = None
+    conf: Dict[str, Any] = Field(default_factory=dict)
+    message: str
+    airflow_url: str
+
+
+class TaskInstanceItem(BaseModel):
+    task_id: str
+    state: Optional[str] = None
+    duration: Optional[float] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    try_number: int = 1
+
+
+class IngestionStatusResponse(BaseModel):
+    dag_id: str
+    dag_run_id: str
+    state: str
+    progress_percent: int
+    current_step: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    execution_date: Optional[str] = None
+    conf: Dict[str, Any] = Field(default_factory=dict)
+    tasks: List[TaskInstanceItem] = Field(default_factory=list)
+    airflow_url: str
+    jaeger_url: str
+    latest_trace_id: Optional[str] = None
+
+
+class IngestionLogResponse(BaseModel):
+    dag_id: str
+    dag_run_id: str
+    task_id: str
+    log: str
+    jaeger_trace_id: Optional[str] = None
+    jaeger_trace_url: Optional[str] = None
+
+
+class IngestionConfigResponse(BaseModel):
+    available_dags: List[Dict[str, Any]]
+    available_sets: List[Dict[str, str]]
+    airflow_connected: bool
+    jaeger_connected: bool
+    airflow_web_url: str
+    jaeger_ui_url: str
+
+
+class IngestionHistoryItem(BaseModel):
+    dag_id: str
+    dag_run_id: str
+    state: str
+    progress_percent: int
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    conf: Dict[str, Any] = Field(default_factory=dict)
+    run_type: Optional[str] = None
+    airflow_url: str
+    jaeger_trace_id: Optional[str] = None
+    jaeger_url: Optional[str] = None
+
+
+class IngestionHistoryResponse(BaseModel):
+    runs: List[IngestionHistoryItem]
+    total: int
+
+
+class JaegerTraceSummary(BaseModel):
+    trace_id: str
+    operation_name: str
+    duration_ms: float
+    start_time: str
+    spans_count: int
+    jaeger_url: str
+
+
+class JaegerTracesResponse(BaseModel):
+    traces: List[JaegerTraceSummary]
+    total: int

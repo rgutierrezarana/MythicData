@@ -32,7 +32,10 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
   // 2. Recursos Asíncronos
   const [cardDetail] = createResource(
     () => props.uuid,
-    (uuid) => fetchCardDetail(uuid)
+    (uuid) => {
+      if (!uuid) return Promise.resolve(null as any);
+      return fetchCardDetail(uuid);
+    }
   );
 
   const filterParams = createMemo<PriceHistoryFilterParams>(() => ({
@@ -45,8 +48,11 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
   }));
 
   const [priceHistoryData, { refetch: refetchHistory }] = createResource(
-    () => ({ uuid: props.uuid, params: filterParams() }),
-    ({ uuid, params }) => fetchCardPriceHistory(uuid, params)
+    () => (props.uuid ? { uuid: props.uuid, params: filterParams() } : null),
+    (source) => {
+      if (!source || !source.uuid) return Promise.resolve(null as any);
+      return fetchCardPriceHistory(source.uuid, source.params);
+    }
   );
 
   const getRarityClass = (rarity?: string) => {
@@ -643,6 +649,149 @@ export const CardDetailScreen: Component<CardDetailScreenProps> = (props) => {
                   </div>
                 </div>
               </div>
+
+              {/* =====================================================================
+                  MACHINE LEARNING FORECAST (GBTRegressor PySpark MLlib)
+                  ===================================================================== */}
+              <Show when={cardDetail()?.prediction}>
+                {(pred) => {
+                  const isUp = pred().direction === 'UP';
+                  const isDown = pred().direction === 'DOWN';
+                  const trendColor = isUp ? '#10b981' : isDown ? '#ef4444' : '#a855f7';
+                  const trendBg = isUp ? 'rgba(16, 185, 129, 0.14)' : isDown ? 'rgba(239, 68, 68, 0.14)' : 'rgba(168, 85, 247, 0.14)';
+                  const trendIcon = isUp ? 'trending_up' : isDown ? 'trending_down' : 'trending_flat';
+                  const changeSign = (pred().expected_change_pct || 0) > 0 ? '+' : '';
+
+                  return (
+                    <div
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(59, 130, 246, 0.06) 100%)',
+                        'border-radius': '20px',
+                        border: '1.5px solid rgba(168, 85, 247, 0.4)',
+                        padding: '20px 24px',
+                        display: 'flex',
+                        'flex-direction': 'column',
+                        gap: '16px',
+                        'box-shadow': '0 8px 32px rgba(0, 0, 0, 0.2)',
+                      }}
+                    >
+                      {/* Cabecera del Modelo ML */}
+                      <div style={{ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between', 'flex-wrap': 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                          <span
+                            class="material-symbols-outlined"
+                            style={{
+                              background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+                              color: '#fff',
+                              padding: '10px',
+                              'border-radius': '12px',
+                              'font-size': '24px',
+                              'box-shadow': '0 4px 12px rgba(168, 85, 247, 0.4)',
+                            }}
+                          >
+                            psychology
+                          </span>
+                          <div>
+                            <div style={{ 'font-size': '1.0625rem', 'font-weight': 800, color: 'var(--m3-on-surface)' }}>
+                              Pronóstico de Próximo Precio (Apache Spark MLlib)
+                            </div>
+                            <div style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)', 'margin-top': '2px' }}>
+                              Algoritmo: Gradient Boosted Trees ({pred().model_name}) · Serie Temporal con Lags
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              color: '#c084fc',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              padding: '4px 10px',
+                              'border-radius': '10px',
+                              'font-size': '0.75rem',
+                              'font-weight': 700,
+                              display: 'flex',
+                              'align-items': 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <span class="material-symbols-outlined" style={{ 'font-size': '16px' }}>verified</span>
+                            {pred().confidence_score}% Precisión (R²)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Comparativa de Precio Actual vs Predicho */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          'grid-template-columns': 'repeat(auto-fit, minmax(180px, 1fr))',
+                          gap: '14px',
+                          background: 'var(--m3-surface-container)',
+                          padding: '16px 20px',
+                          'border-radius': '14px',
+                          border: '1px solid var(--m3-outline-variant)',
+                        }}
+                      >
+                        <div>
+                          <div style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)', 'font-weight': 600 }}>
+                            Precio Actual de Referencia
+                          </div>
+                          <div style={{ 'font-size': '1.375rem', 'font-weight': 800, color: 'var(--m3-on-surface)', 'margin-top': '4px' }}>
+                            ${pred().current_price?.toFixed(2) || '0.00'} USD
+                          </div>
+                          <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-outline)', 'margin-top': '2px' }}>
+                            Última cotización en mercado
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ 'font-size': '0.75rem', color: '#c084fc', 'font-weight': 700 }}>
+                            Próximo Precio Estimado (t+1)
+                          </div>
+                          <div style={{ 'font-size': '1.5rem', 'font-weight': 900, color: '#38bdf8', 'margin-top': '4px' }}>
+                            ${pred().predicted_next_price?.toFixed(2) || '0.00'} USD
+                          </div>
+                          <div style={{ 'font-size': '0.6875rem', color: 'var(--m3-outline)', 'margin-top': '2px' }}>
+                            Inferencia proyectada de Spark ML
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', 'flex-direction': 'column', 'justify-content': 'center' }}>
+                          <div style={{ 'font-size': '0.75rem', color: 'var(--m3-on-surface-variant)', 'font-weight': 600 }}>
+                            Variación Esperada
+                          </div>
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              'align-items': 'center',
+                              gap: '6px',
+                              background: trendBg,
+                              color: trendColor,
+                              padding: '6px 12px',
+                              'border-radius': '10px',
+                              'font-size': '0.9375rem',
+                              'font-weight': 800,
+                              width: 'fit-content',
+                              'margin-top': '6px',
+                            }}
+                          >
+                            <span class="material-symbols-outlined" style={{ 'font-size': '18px' }}>{trendIcon}</span>
+                            {changeSign}{pred().expected_change_pct}% ({pred().direction === 'UP' ? 'Subida' : pred().direction === 'DOWN' ? 'Bajada' : 'Estable'})
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Explicación de Variables del Modelo */}
+                      <div style={{ 'font-size': '0.75rem', color: 'var(--m3-outline)', display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                        <span class="material-symbols-outlined" style={{ 'font-size': '16px', color: '#c084fc' }}>insights</span>
+                        Variables analizadas: Lags temporales (t-1, t-3, t-7), medias móviles (7d/14d), volatilidad estocástica, momentum y rareza de carta.
+                      </div>
+                    </div>
+                  );
+                }}
+              </Show>
 
               {/* =====================================================================
                   KPI METRICS & STATS CARDS (Material Design 3 Surface Cards)

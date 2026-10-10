@@ -309,6 +309,16 @@ h1, h2, h3, h4, h5, h6, .display-font {
   animation: popoverIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.card-grid-item {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.card-grid-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-3);
+  border-color: var(--m3-primary) !important;
+}
+
 /* Shimmer Skeleton Loader */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

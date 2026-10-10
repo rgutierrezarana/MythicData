@@ -13,7 +13,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.config import settings
 from backend.database import get_db, init_db
 from backend.schemas import CardSummary, CardDetail, FilterMetadata, PaginatedResponse
+from backend import schemas
 from backend import crud
+from backend import ingestion
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(name)s: %(message)s")
@@ -128,6 +130,21 @@ def get_card_detail(uuid: str, db: Session = Depends(get_db)):
 
 
 @app.get(
+    f"{settings.API_V1_PREFIX}/cards/{{uuid}}/prediction",
+    response_model=schemas.CardPricePrediction,
+    tags=["Machine Learning & Predictions"]
+)
+def get_card_price_prediction(uuid: str, db: Session = Depends(get_db)):
+    """
+    Retorna la proyección estimada del próximo precio para una carta generada con GBTRegressor en Apache Spark MLlib.
+    """
+    pred = crud.get_card_prediction(db, uuid)
+    if not pred:
+        raise HTTPException(status_code=404, detail=f"No hay predicción disponible para la carta '{uuid}'.")
+    return pred
+
+
+@app.get(
     f"{settings.API_V1_PREFIX}/cards/{{uuid}}/price-history",
     response_model=crud.CardPriceHistoryResponse,
     tags=["Pricing"]
@@ -171,6 +188,89 @@ def get_filters_metadata(db: Session = Depends(get_db)):
 
 
 # ==============================================================================
+# Endpoints de Ingesta de Datos, Pipelines Airflow y Observabilidad Jaeger
+# ==============================================================================
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/ingestion/config",
+    response_model=schemas.IngestionConfigResponse,
+    tags=["Ingestion & ETL"]
+)
+def get_ingestion_configuration(db: Session = Depends(get_db)):
+    """
+    Retorna los DAGs disponibles, catálogo de sets para ingesta y estado de conectividad con Airflow y Jaeger.
+    """
+    return ingestion.get_ingestion_config(db)
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/ingestion/trigger",
+    response_model=schemas.IngestionTriggerResponse,
+    tags=["Ingestion & ETL"]
+)
+def trigger_ingestion_pipeline(req: schemas.IngestionTriggerRequest):
+    """
+    Desencadena una ejecución manual de un DAG en Apache Airflow (ej. selected_set_ingestion o all_sets_ingestion).
+    """
+    try:
+        return ingestion.trigger_dag_run(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/ingestion/status/{{dag_id}}/{{dag_run_id}}",
+    response_model=schemas.IngestionStatusResponse,
+    tags=["Ingestion & ETL"]
+)
+def get_ingestion_status(dag_id: str, dag_run_id: str):
+    """
+    Retorna el estado de la ingesta en tiempo real, porcentaje de progreso, tareas ejecutadas y traza de Jaeger.
+    """
+    return ingestion.get_dag_run_status(dag_id, dag_run_id)
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/ingestion/logs/{{dag_id}}/{{dag_run_id}}",
+    response_model=schemas.IngestionLogResponse,
+    tags=["Ingestion & ETL"]
+)
+def get_ingestion_logs(
+    dag_id: str,
+    dag_run_id: str,
+    task_id: Optional[str] = Query(None, description="Identificador de la tarea (opcional)")
+):
+    """
+    Retorna los logs de la ejecución de la tarea en Airflow y el enlace a la traza en Jaeger.
+    """
+    return ingestion.get_dag_run_logs(dag_id, dag_run_id, task_id)
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/ingestion/history",
+    response_model=schemas.IngestionHistoryResponse,
+    tags=["Ingestion & ETL"]
+)
+def get_ingestion_history(limit: int = Query(15, ge=1, le=50, description="Número de ejecuciones recientes")):
+    """
+    Retorna el historial de ejecuciones de pipelines de ingesta en Airflow con sus estados y parámetros.
+    """
+    return ingestion.get_ingestion_history(limit)
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/ingestion/jaeger-traces",
+    response_model=schemas.JaegerTracesResponse,
+    tags=["Ingestion & ETL"]
+)
+def get_jaeger_traces(limit: int = Query(10, ge=1, le=50, description="Número de trazas recientes")):
+    """
+    Retorna las últimas trazas distribuidas registradas en Jaeger por el pipeline PySpark.
+    """
+    return ingestion.get_jaeger_traces(limit)
+
+
+# ==============================================================================
 # Servir Frontend SolidJS (Archivos Estáticos y Fallback SPA)
 # ==============================================================================
 
@@ -190,7 +290,7 @@ if os.path.exists(frontend_dist):
         # Fallback para rutas de cliente SPA (index.html)
         index_file = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_file):
-            return FileResponse(index_file)
+            return FileResponse(index_file, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
         
         return JSONResponse({"message": "Frontend en desarrollo. Acceda a /docs para la API."}, status_code=200)
 else:

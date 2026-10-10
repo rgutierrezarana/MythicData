@@ -210,6 +210,17 @@ def execute_spark_job_for_sets(**context):
         raise RuntimeError(f"El job de PySpark falló con código de salida: {ret_code}")
 
 
+def execute_spark_prediction_job(**context):
+    """
+    Ejecuta el pipeline de Machine Learning PySpark GBTRegressor para proyectar el próximo precio de las cartas.
+    """
+    cmd = "python /opt/airflow/spark_jobs/predict_card_prices.py --max-iter 25 --max-depth 5"
+    logger.info(f"Ejecutando pipeline ML PySpark GBTRegressor: {cmd}")
+    ret_code = os.system(cmd)
+    if ret_code != 0:
+        logger.warning(f"El job de predicción GBTRegressor retornó código {ret_code}, continuando...")
+
+
 dag_name = Path(__file__).stem
 
 with DAG(
@@ -219,7 +230,7 @@ with DAG(
     schedule_interval=None,  # Disparo bajo demanda con selector de parámetros
     catchup=False,
     max_active_runs=1,
-    tags=["mtg", "pyspark", "cards", "pricing", "parquet", "postgres"],
+    tags=["mtg", "pyspark", "cards", "pricing", "parquet", "postgres", "ml", "gbt"],
     params={
         "set_codes": Param(
             default=[],
@@ -254,6 +265,14 @@ with DAG(
         provide_context=True,
     )
 
+    # 3. Entrena el modelo GBTRegressor y genera predicciones de próximo precio
+    spark_predict_prices_task = PythonOperator(
+        task_id="spark_predict_prices_gbt",
+        python_callable=execute_spark_prediction_job,
+        provide_context=True,
+    )
+
     end_task = EmptyOperator(task_id="end_pipeline")
 
-    start_task >> validate_params_task >> spark_process_cards_task >> end_task
+    start_task >> validate_params_task >> spark_process_cards_task >> spark_predict_prices_task >> end_task
+

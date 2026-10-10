@@ -184,3 +184,23 @@ SELECT
 FROM card_price_history h
 JOIN cards c ON h.card_uuid = c.uuid
 JOIN sets s ON c.set_code = s.code;
+
+-- ----------------------------------------------------------------------------
+-- 5. Tabla de Predicciones de Precios con Machine Learning (GBTRegressor)
+-- Almacena las proyecciones estimadas del próximo precio calculadas con Apache Spark MLlib.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS card_price_predictions (
+    card_uuid VARCHAR(64) PRIMARY KEY REFERENCES cards(uuid) ON DELETE CASCADE,
+    current_price NUMERIC(12,4),
+    predicted_next_price NUMERIC(12,4),
+    expected_change_pct NUMERIC(8,2),
+    direction VARCHAR(10),  -- UP, DOWN, STABLE
+    confidence_score NUMERIC(5,2),
+    model_name VARCHAR(50) DEFAULT 'GBTRegressor',
+    features_used VARCHAR(255),
+    predicted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pred_card_uuid ON card_price_predictions(card_uuid);
+CREATE INDEX IF NOT EXISTS idx_pred_change ON card_price_predictions(expected_change_pct);

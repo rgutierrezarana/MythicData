@@ -79,6 +79,18 @@ export interface CardSummary {
   current_price_provider?: string;
 }
 
+export interface CardPricePrediction {
+  card_uuid: string;
+  current_price?: number;
+  predicted_next_price?: number;
+  expected_change_pct?: number;
+  direction?: 'UP' | 'DOWN' | 'STABLE' | string;
+  confidence_score?: number;
+  model_name?: string;
+  features_used?: string;
+  predicted_at?: string;
+}
+
 export interface CardDetail extends CardSummary {
   oracle_text?: string;
   colors?: string;
@@ -94,6 +106,7 @@ export interface CardDetail extends CardSummary {
   recent_history: PriceHistoryItem[];
   price_stats?: PriceStats;
   set_info?: SetSummary;
+  prediction?: CardPricePrediction;
 }
 
 export interface FilterColor {

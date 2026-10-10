@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     ENABLE_TRACING: bool = os.getenv("ENABLE_TRACING", "true").lower() in ("true", "1", "yes")
 
+    # Airflow & Observabilidad
+    AIRFLOW_API_URL: str = os.getenv("AIRFLOW_API_URL", "http://airflow-webserver:8080/api/v1")
+    AIRFLOW_WEB_URL: str = os.getenv("AIRFLOW_WEB_URL", "http://localhost:8080")
+    AIRFLOW_USER: str = os.getenv("_AIRFLOW_WWW_USER_USERNAME", "admin")
+    AIRFLOW_PASSWORD: str = os.getenv("_AIRFLOW_WWW_USER_PASSWORD", "admin")
+    AIRFLOW_LOGS_DIR: str = os.getenv("AIRFLOW_LOGS_DIR", "/opt/airflow/logs")
+
+    # Jaeger Tracing
+    JAEGER_API_URL: str = os.getenv("JAEGER_API_URL", "http://jaeger:16686/api")
+    JAEGER_UI_URL: str = os.getenv("JAEGER_UI_URL", "http://localhost:16686")
+
     class Config:
         case_sensitive = True
 
